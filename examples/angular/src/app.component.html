@@ -1,0 +1,80 @@
+<main>
+  <section class="card">
+    <p class="eyebrow">Web Component em ação</p>
+    <h1>DdocBot com Angular</h1>
+    <p class="intro">Um assistente pequeno para deixar tarefas assíncronas mais vivas.</p>
+
+    <div class="demo">
+      <dot-bot
+        #bot
+        class="bot"
+        (ddocbot-statechange)="onStateChange($event)"
+        (ddocbot-trainingstatechange)="onTrainingStateChange($event)"
+      ></dot-bot>
+      <div>
+        <span class="label">Status</span>
+        <strong aria-live="polite">{{ status() }}</strong>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button type="button" class="secondary" [disabled]="soundEnabled()" (click)="enableSound()">
+        {{ soundEnabled() ? 'Som ativado' : 'Ativar som' }}
+      </button>
+      <button type="button" [disabled]="busy()" (click)="runTask()">
+        {{ busy() ? 'Executando…' : 'Executar tarefa' }}
+      </button>
+    </div>
+
+    <section class="guidance-example" aria-labelledby="guidance-title">
+      <div><span class="label">Guia visual</span><h2 id="guidance-title">Mostre o próximo passo</h2></div>
+      <div id="guide-target">Confira este destaque antes de continuar.</div>
+      <div class="guide-actions"><button type="button" (click)="guideToHighlight()">Guiar até o destaque</button><button type="button" class="secondary" (click)="returnHome()">Voltar para casa</button></div>
+    </section>
+
+    <section class="training-example" aria-labelledby="training-title">
+      <div>
+        <span class="label">Treinamento com rotas reais</span>
+        <h2 id="training-title">Cadastre um cliente com o ddocBot</h2>
+        <p class="intro">O Angular Router troca as telas e confirma ao componente quando cada uma terminou de renderizar.</p>
+      </div>
+
+      <div class="training-actions">
+        <button type="button" [disabled]="trainingStartUnavailable()" (click)="startTraining()">
+          Iniciar treinamento
+        </button>
+        <label class="training-check">
+          <input type="checkbox" [checked]="simulateFailure()" (change)="onFailureChange($event)">
+          Simular falha ao salvar
+        </label>
+        <label class="training-check training-check-wide">
+          <input
+            type="checkbox"
+            [checked]="automaticNavigation()"
+            [disabled]="runningTraining()"
+            (change)="onAutomaticNavigationChange($event)"
+          >
+          Solicitar navegação automática entre as etapas
+        </label>
+      </div>
+
+      <p class="training-feedback" aria-live="polite">{{ trainingFeedback() }}</p>
+      <nav class="training-routes" aria-label="Telas do treinamento">
+        <a
+          routerLink="/training/clients"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >Lista de clientes</a>
+        <a
+          routerLink="/training/clients/new"
+          routerLinkActive="active"
+          ariaCurrentWhenActive="page"
+          [routerLinkActiveOptions]="{ exact: true }"
+        >Tela de cadastro</a>
+      </nav>
+
+      <router-outlet (activate)="onTrainingPageActivated($event)"></router-outlet>
+    </section>
+  </section>
+</main>

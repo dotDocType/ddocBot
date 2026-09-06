@@ -1,0 +1,24 @@
+{
+  "name": "@ddocbot/example-angular",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev": "ng serve",
+    "build": "ng build"
+  },
+  "dependencies": {
+    "@angular/common": "21.2.22",
+    "@angular/core": "21.2.22",
+    "@angular/platform-browser": "21.2.22",
+    "@angular/router": "21.2.22",
+    "@ddocbot/element": "file:../..",
+    "rxjs": "7.8.2",
+    "zone.js": "0.15.1"
+  },
+  "devDependencies": {
+    "@angular/build": "21.2.23",
+    "@angular/cli": "21.2.23",
+    "@angular/compiler-cli": "21.2.22",
+    "typescript": "5.9.3"
+  }
+}
