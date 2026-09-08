@@ -6,3 +6,6 @@ test-results/
 playwright-report/
 .superpowers/
 docs/superpowers/
+
+# Materiais de mídia social: manter apenas localmente.
+/output/social/
