@@ -89,7 +89,7 @@ h1 em { font-style: normal; color: var(--accent-text); }
 .label { font: 10px var(--font-mono); letter-spacing: 1.4px; color: var(--text-tertiary); }
 .state-pill { display: flex; gap: 7px; align-items: center; background: var(--accent-dim); border: 1px solid var(--border-light); border-radius: 20px; padding: 5px 10px; font-size: 10px; color: var(--text-secondary); }
 .state-pill i { width: 5px; height: 5px; border-radius: 50%; background: var(--color-producer); }
-.pixel-stage { --border-light: #9690a4; --grid-dot-color: #c2bdcd; --text-tertiary: #655d73; background-color: #eeecf4; border-radius: 8px; position: relative; flex: 1; min-height: 350px; display: grid; place-items: center; background-image: radial-gradient(var(--grid-dot-color) .75px, transparent .75px); background-size: 16px 16px; margin: 0 16px; isolation: isolate; }
+.pixel-stage { --border-light: #c2bdcd; --grid-dot-color: #c2bdcd; --text-tertiary: #655d73; background-color: #eeecf4; border-radius: 8px; position: relative; flex: 1; min-height: 350px; display: grid; place-items: center; background-image: radial-gradient(var(--grid-dot-color) .75px, transparent .75px); background-size: 16px 16px; margin: 0 16px; isolation: isolate; }
 .pixel-display { width: 192px; height: 192px; z-index: 1; }
 .pixel-display canvas { image-rendering: pixelated; width: 192px; height: 192px; display: block; }
 .orbit { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); border: 1px solid var(--border-light); pointer-events: none; }
