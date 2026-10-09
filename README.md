@@ -129,7 +129,7 @@ A demonstração inclui os controles **Som do alerta** e **Intervalo (ms)** junt
 
 ## Botão de ajuda
 
-Com `help-button`, o ddocBot também serve como botão de ajuda do site. Em repouso ele mostra um "?" vetorial na cor do elemento, no canto direito da faixa. Ao ser ativado, vira o ponto e emite `ddocbot-activate`; o site decide o que fazer. Quando não há balão, tarefa, voo nem treinamento, ele volta ao "?" depois de 1,5 s.
+Com `help-button`, o ddocBot também serve como botão de ajuda do site. Em repouso ele mostra um "?" vetorial na cor do elemento, na ponta da faixa mais próxima da borda da tela: no canto direito por padrão, no esquerdo com `dot-bot { left: 16px; right: auto; }`. Ao ser ativado, vira o ponto e emite `ddocbot-activate`; o site decide o que fazer. Quando não há balão, tarefa, voo nem treinamento, ele volta ao "?" depois de 1,5 s.
 
 ```html
 <dot-bot help-button style="color: #38634b"></dot-bot>

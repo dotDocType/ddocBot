@@ -18,4 +18,7 @@ export function advanceHelpReturn(remaining, resting, dt) {
   return resting ? Math.max(0, remaining - dt) : RETURN_DELAY_MS;
 }
 
-export const helpHomeX = bandWidth => Math.max(0, Math.round(bandWidth) - 24);
+/** The band's end nearest a horizontal viewport edge; ties (centered bands) keep the right end. */
+export const helpSide = (box, viewportWidth) => box.left < viewportWidth - box.right ? 'start' : 'end';
+
+export const helpHomeX = (bandWidth, side = 'end') => side === 'start' ? 0 : Math.max(0, Math.round(bandWidth) - 24);

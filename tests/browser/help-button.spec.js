@@ -60,6 +60,13 @@ test('the "?" sits at the right edge and returns there after the bot moved',asyn
   await expect.poll(()=>page.evaluate(()=>bot.state)).toBe('idle');
   expect(await triggerLeft(page)).toBe(-10);
 });
+test('a band anchored to the left keeps the "?" at its left edge',async({page})=>{
+  await page.evaluate(()=>{bot.style.left='16px';bot.style.right='auto';});
+  await expect.poll(()=>triggerLeft(page)).toBe(-10);
+  await expect.poll(()=>page.evaluate(()=>bot.shadowRoot.querySelector('.help').getBoundingClientRect().left)).toBe(16);
+  await page.evaluate(()=>{bot.style.left='';bot.style.right='';});
+  await expect.poll(()=>triggerLeft(page)).toBe(160-24-10);
+});
 test('trigger label follows appearance and locale',async({page})=>{
   await page.evaluate(()=>{bot.locale='en';});
   await expect(page.getByRole('button',{name:'Help'})).toBeVisible();

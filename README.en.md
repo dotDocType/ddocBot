@@ -129,7 +129,7 @@ The demo includes **Alert sound** and **Interval (ms)** controls next to the las
 
 ## Help button
 
-With `help-button`, ddocBot also works as the site's help button. At rest it shows a vector "?" in the element color, at the right edge of the band. When activated it becomes the dot and emits `ddocbot-activate`; the site decides what happens. When there is no bubble, task, flight, or training, it returns to "?" after 1.5 s.
+With `help-button`, ddocBot also works as the site's help button. At rest it shows a vector "?" in the element color, at the end of the band nearest the screen edge: the right corner by default, the left one with `dot-bot { left: 16px; right: auto; }`. When activated it becomes the dot and emits `ddocbot-activate`; the site decides what happens. When there is no bubble, task, flight, or training, it returns to "?" after 1.5 s.
 
 ```html
 <dot-bot help-button style="color: #38634b"></dot-bot>
