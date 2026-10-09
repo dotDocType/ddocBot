@@ -32,9 +32,38 @@ test('practical instruction persists after feedback expires and offers no bypass
   await page.locator('#outside').focus();
   await expect(page.getByText('Confira os dados', { exact: true })).not.toBeVisible();
   await expect(page.locator('[data-training-view-fixture]').getByRole('status')).toContainText('Salve o cadastro');
-  await expect(page.getByText('Passo 2 de 3')).toBeVisible();
+  await expect(page.locator('.ddocbot-training-counter')).toHaveText('Passo 2 de 3');
   await expect(page.getByRole('button', { name: 'Próximo', exact: true })).toHaveCount(0);
   await expect(page.getByRole('button', { name: 'Encerrar', exact: true })).toBeVisible();
+});
+
+test('compact icon controls share one row with the visible step counter', async ({ page }) => {
+  await setup(page, { type: 'manual' });
+  const layout = await page.evaluate(() => {
+    const box = node => node.getBoundingClientRect();
+    const buttons = [...trainingView.controls.querySelectorAll('button')].filter(button => !button.hidden);
+    const counter = trainingView.controls.querySelector('.ddocbot-training-counter');
+    return {
+      names: buttons.map(button => button.getAttribute('aria-label')),
+      titles: buttons.map(button => button.title),
+      sizes: buttons.map(button => [box(button).width, box(button).height]),
+      tops: [...new Set(buttons.map(button => Math.round(box(button).top)))],
+      icons: buttons.every(button => button.querySelector('svg') && !button.textContent.trim()),
+      counterCentered: Math.abs((box(counter).top + box(counter).height / 2) - (box(buttons[0]).top + box(buttons[0]).height / 2)) < 2,
+      counterHidden: counter.getAttribute('aria-hidden')
+    };
+  });
+  expect(layout.names).toEqual(['Voltar', 'Pausar', 'Encerrar', 'Próximo']);
+  expect(layout.titles).toEqual(layout.names);
+  expect(layout.sizes).toEqual(Array(4).fill([32, 32]));
+  expect(layout.tops).toHaveLength(1);
+  expect(layout.icons).toBe(true);
+  expect(layout.counterCentered).toBe(true);
+  expect(layout.counterHidden).toBe('true');
+  await expect(page.locator('.ddocbot-training-counter')).toHaveText('Passo 2 de 3');
+  await expect(page.locator('[data-training-view-fixture]').getByRole('status')).toContainText('Passo 2 de 3');
+  await page.evaluate(() => trainingView.setLocale('en'));
+  await expect(page.getByRole('button', { name: 'Next', exact: true })).toHaveAttribute('title', 'Next');
 });
 
 test('native keyboard actions and first/last step controls', async ({ page }) => {
@@ -85,8 +114,8 @@ test('controls meet touch size and long plain text wraps on narrow screens', asy
     step: { ...viewSnapshot.step, text: '<img src=x>' + 'palavra'.repeat(80) } }));
   const control = page.getByRole('button', { name: 'Pausar', exact: true });
   const rect = await control.boundingBox();
-  expect(rect.width).toBeGreaterThanOrEqual(44);
-  expect(rect.height).toBeGreaterThanOrEqual(44);
+  expect(rect.width).toBeGreaterThanOrEqual(32);
+  expect(rect.height).toBeGreaterThanOrEqual(32);
   await expect(page.locator('[data-training-view-fixture]').getByRole('status')).toContainText('<img src=x>');
   await expect(page.locator('[role=status] img')).toHaveCount(0);
   const width = await page.locator('[data-training-view-fixture]').getByRole('status').evaluate(el => el.scrollWidth);
