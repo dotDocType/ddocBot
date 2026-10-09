@@ -31,7 +31,21 @@ canvas.is-hidden{opacity:0}
 @keyframes ddocbot-help-pulse{0%,100%{transform:scale(1)}40%{transform:scale(1.18)}}
 @keyframes ddocbot-help-ring{0%{transform:scale(1);opacity:.55}100%{transform:scale(2.6);opacity:0}}
 @media (prefers-reduced-motion:reduce){.help.nudge svg,.help.nudge i{animation:none}.help.nudge i:first-of-type{opacity:.35;transform:scale(1.5)}}
+.intro{position:absolute;left:10px;top:10px;width:24px;height:24px;pointer-events:none}
+.intro i{position:absolute;inset:0;border:2px solid currentColor;border-radius:50%;opacity:0}
+.intro.play i{animation:ddocbot-help-ring .9s ease-out forwards}
+.intro.play i:nth-of-type(2){animation-delay:.15s}
+.intro.play i:nth-of-type(3){animation-delay:.3s}
+.bubble.grow{pointer-events:none;transform-origin:var(--ddocbot-tail-x,50%) var(--ddocbot-origin-y,100%);animation:ddocbot-bubble-in .3s cubic-bezier(.2,.9,.3,1.15) .7s both}
+.tail{position:fixed;width:12px;height:12px;background:var(--ddocbot-bubble-background,#fff);border:solid var(--ddocbot-bubble-border,#cbd4cd);border-width:0 1px 1px 0;transform:rotate(45deg);pointer-events:none}
+.tail.below{border-width:1px 0 0 1px}
+.tail.grow{animation:ddocbot-fade-in .3s .7s both}
+@keyframes ddocbot-bubble-in{from{opacity:0;transform:scale(.2)}to{opacity:1;transform:none}}
+@keyframes ddocbot-fade-in{from{opacity:0}}
+@media (prefers-reduced-motion:reduce){.intro.play i,.bubble.grow,.tail.grow{animation:none}.bubble.grow{pointer-events:auto}.intro.play i:first-of-type{opacity:.35;transform:scale(1.5)}}
 `;
+// Rings lead, the bubble grows out of the dot from 700ms to 1000ms, then the intro classes are dropped.
+const INTRO_MS = 1200;
 const localeUi = {
   'pt-BR': { trigger: 'ddocBot, assistente', help: 'Ajuda', close: 'Fechar mensagem' },
   en: { trigger: 'ddocBot, assistant', help: 'Help', close: 'Close message' },
@@ -48,11 +62,12 @@ export function defineDdocBot() {
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
-      this.shadowRoot.innerHTML = `<style>${styles}</style><canvas width="24" height="24" aria-hidden="true"></canvas><button class="trigger" type="button" aria-label="ddocBot, assistente"><span class="help" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="${HELP_ICON_PATH}"/></svg><i></i><i></i><i></i></span></button><div class="bubble" hidden><div role="status" aria-live="polite" aria-atomic="true"></div><button class="close" type="button" aria-label="Fechar mensagem">×</button></div>`;
+      this.shadowRoot.innerHTML = `<style>${styles}</style><canvas width="24" height="24" aria-hidden="true"></canvas><button class="trigger" type="button" aria-label="ddocBot, assistente"><span class="help" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="${HELP_ICON_PATH}"/></svg><i></i><i></i><i></i></span><span class="intro" aria-hidden="true"><i></i><i></i><i></i></span></button><div class="bubble" hidden><div role="status" aria-live="polite" aria-atomic="true"></div><button class="close" type="button" aria-label="Fechar mensagem">×</button></div><div class="tail" aria-hidden="true" hidden></div>`;
       this._canvas = this.shadowRoot.querySelector('canvas'); this._context = this._canvas.getContext('2d');
       this._trigger = this.shadowRoot.querySelector('.trigger'); this._bubble = this.shadowRoot.querySelector('.bubble');
       this._status = this.shadowRoot.querySelector('[role=status]');
       this._help = this.shadowRoot.querySelector('.help');
+      this._intro = this.shadowRoot.querySelector('.intro'); this._tail = this.shadowRoot.querySelector('.tail');
       this._viewRoot = this.shadowRoot; this._landing = 0;
       this._alert = new AlertPulse(); this._alertSound = null;
       this._audio = new BotAudio(detail => this._emit('ddocbot-audioerror', detail));
@@ -82,6 +97,7 @@ export function defineDdocBot() {
           render: snapshot => {
             const running = this._trainingRuntime.running;
             if (running) this._cancelBubbleTimer();
+            if (running && !this._trainingPresented) this._playIntro(); else if (!running) this._stopIntro();
             if (this._trainingPresented && !running && !this._engine.tasks.size) this._landing = this._media?.matches ? 0 : 250;
             this._trainingPresented = running;
             this._trainingView?.render(snapshot); this._wake();
@@ -140,7 +156,7 @@ export function defineDdocBot() {
     disconnectedCallback() {
       this._trainingRuntime.destroy(); this._trainingView.destroy(); this._trainingView = null;
       this._trainingPresented = false; this._suppressReaction = false;
-      this._helpReturn = 0; this._stopNudge();
+      this._helpReturn = 0; this._stopNudge(); this._stopIntro();
       this._sleep(); this._alert.update(0, false); this._audio.stopAlert(); this._dismissBubble(); this._navigation.destroy(); this._removeLayer(); this._landing = 0; this._audio.destroy(); this._engine.reset();
       this._resize?.disconnect(); this._appearance?.disconnect(); this._media?.removeEventListener('change', this._onMotion);
       document.removeEventListener('visibilitychange', this._onVisibility);
@@ -200,6 +216,18 @@ export function defineDdocBot() {
       clearTimeout(this._nudgeTimer); this._nudgeTimer = null;
       this._help.classList.remove('nudge');
     }
+    /** Points the user at the dot before the first training bubble grows out of it. */
+    _playIntro() {
+      this._stopIntro();
+      void this._intro.offsetWidth; // Restart the CSS animations from the first frame.
+      this._intro.classList.add('play');
+      this._bubble.classList.add('grow'); this._tail.classList.add('grow');
+      this._introTimer = setTimeout(() => this._stopIntro(), INTRO_MS);
+    }
+    _stopIntro() {
+      clearTimeout(this._introTimer); this._introTimer = null;
+      this._intro.classList.remove('play'); this._bubble.classList.remove('grow'); this._tail.classList.remove('grow');
+    }
     _syncTriggerLabel() {
       const labels = localeUi[this._locale];
       this._trigger?.setAttribute('aria-label', this._helpView === 'help' ? labels.help : labels.trigger);
@@ -255,7 +283,7 @@ export function defineDdocBot() {
     }
     say(text, { duration = 6000 } = {}) {
       if (!Number.isFinite(duration) || duration < 0) throw new TypeError('duration must be a nonnegative finite number');
-      this._trainingRuntime.externalCommand(); this._cancelBubbleTimer();
+      this._trainingRuntime.externalCommand(); this._cancelBubbleTimer(); this._stopIntro();
       this._status.textContent = String(text); this._bubble.hidden = false; this._remaining = duration;
       if (this._bubble.matches(':hover')) this._pauses.add('hover');
       if (this._bubble.contains(this._viewRoot.activeElement)) this._pauses.add('focus');
@@ -320,7 +348,7 @@ export function defineDdocBot() {
     }
     _movePresentation(root) {
       const focused = this._viewRoot.activeElement;
-      root.append(this._canvas, this._trigger, this._bubble);
+      root.append(this._canvas, this._trigger, this._bubble, this._tail);
       this._viewRoot = root;
       if (focused?.isConnected && (focused === this._trigger || this._bubble.contains(focused))) {
         focused.focus({ preventScroll: true });
@@ -333,19 +361,31 @@ export function defineDdocBot() {
       this._canvas.style.top = ''; this._trigger.style.top = '';
     }
     _positionBubble() {
-      if (this._bubble.hidden || !this.isConnected) return;
+      if (this._bubble.hidden || !this.isConnected) { this._tail.hidden = true; return; }
       const box = this._trigger.getBoundingClientRect();
       const viewport = this.ownerDocument.defaultView;
       const above = Math.max(0, box.top - 18);
       const below = Math.max(0, viewport.innerHeight - box.bottom - 18);
       const room = Math.max(above, below);
       this._bubble.style.maxHeight = `${Math.min(320, Math.max(32, room))}px`;
-      const size = this._bubble.getBoundingClientRect();
+      // Layout size, not the bounding box: the intro scales the bubble while it grows.
+      const size = { width: this._bubble.offsetWidth, height: this._bubble.offsetHeight };
       const useAbove = above >= size.height || above >= below;
-      const top = useAbove ? box.top - size.height - 6 : box.bottom + 6;
-      this._bubble.style.left = `${Math.max(12, Math.min(viewport.innerWidth - size.width - 12, box.x + box.width / 2 - size.width / 2))}px`;
-      this._bubble.style.top = `${Math.max(12, Math.min(viewport.innerHeight - size.height - 12, top))}px`;
+      const top = Math.max(12, Math.min(viewport.innerHeight - size.height - 12, useAbove ? box.top - size.height - 6 : box.bottom + 6));
+      const left = Math.max(12, Math.min(viewport.innerWidth - size.width - 12, box.x + box.width / 2 - size.width / 2));
+      this._bubble.style.left = `${left}px`;
+      this._bubble.style.top = `${top}px`;
       this._bubble.style.bottom = 'auto';
+      // The tail stays clear of the rounded corners and disappears when the bubble is pushed onto the dot.
+      const tailX = Math.max(16, Math.min(size.width - 16, box.x + box.width / 2 - left));
+      const edge = useAbove ? top + size.height : top;
+      const gap = useAbove ? box.top - edge : edge - box.bottom;
+      this._bubble.style.setProperty('--ddocbot-tail-x', `${tailX}px`);
+      this._bubble.style.setProperty('--ddocbot-origin-y', useAbove ? '100%' : '0%');
+      this._tail.hidden = !this._bubble.classList.contains('ddocbot-training-active') || gap <= 0;
+      this._tail.classList.toggle('below', !useAbove);
+      this._tail.style.left = `${left + tailX - 6}px`;
+      this._tail.style.top = `${edge - 6}px`;
     }
     _syncAlert(dt = 0) {
       const visible = this.isConnected && !document.hidden && this.navigationState === 'pointing' && Boolean(this._navigation.laserEnd);
