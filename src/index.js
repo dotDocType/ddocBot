@@ -16,6 +16,11 @@ canvas{position:absolute;width:24px;height:24px;image-rendering:pixelated;pointe
 .close{position:absolute;right:5px;top:5px;width:28px;height:28px;border:0;background:transparent;color:inherit;font-size:20px;cursor:pointer;border-radius:5px}
 .close:focus-visible{outline:2px solid currentColor}
 `;
+const localeUi = {
+  'pt-BR': { trigger: 'ddocBot, assistente', close: 'Fechar mensagem' },
+  en: { trigger: 'ddocBot, assistant', close: 'Close message' },
+  es: { trigger: 'ddocBot, asistente', close: 'Cerrar mensaje' }
+};
 
 /** Register on the client. Importing this module is safe in Node/SSR. */
 export function defineDdocBot() {
@@ -23,7 +28,7 @@ export function defineDdocBot() {
   const registered = customElements.get('dot-bot');
   if (registered) return registered;
   class DdocBot extends HTMLElement {
-    static observedAttributes = ['movement-width', 'muted', 'volume'];
+    static observedAttributes = ['movement-width', 'muted', 'volume', 'locale'];
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
@@ -52,7 +57,7 @@ export function defineDdocBot() {
         onTargetLost: detail => this._emit('ddocbot-targetlost', detail),
         wake: () => this._wake()
       });
-      this._movementWidth = 160; this._remaining = 0; this._pauses = new Set();
+      this._movementWidth = 160; this._locale = 'pt-BR'; this._remaining = 0; this._pauses = new Set();
       this._trainingRuntime = createTrainingRuntime({
         host: this,
         presentation: {
@@ -94,7 +99,7 @@ export function defineDdocBot() {
     connectedCallback() {
       if (!this._trainingView) this._createTrainingView();
       // Restore properties assigned before customElements.define upgraded this node.
-      for (const prop of ['muted', 'volume', 'movementWidth', 'alertSound', 'alertInterval']) {
+      for (const prop of ['muted', 'volume', 'movementWidth', 'alertSound', 'alertInterval', 'locale']) {
         if (Object.prototype.hasOwnProperty.call(this, prop)) { const value = this[prop]; delete this[prop]; this[prop] = value; }
       }
       this._media = matchMedia('(prefers-reduced-motion: reduce)');
@@ -123,6 +128,7 @@ export function defineDdocBot() {
       if (name === 'movement-width') this.movementWidth = value === null ? 160 : Number(value);
       if (name === 'volume') this.volume = value === null ? 0.35 : Number(value);
       if (name === 'muted') this.muted = value !== null && value !== 'false';
+      if (name === 'locale') this.locale = value || 'pt-BR';
     }
     get alertSound() { return this._alertSound; }
     set alertSound(value) {
@@ -133,6 +139,16 @@ export function defineDdocBot() {
     get alertInterval() { return this._alert.interval; }
     set alertInterval(value) { this._alert.interval = value; this._wake(); }
     get navigationState() { return this._navigation.state; }
+    get locale() { return this._locale; }
+    set locale(value) {
+      const normalized = String(value || '').toLowerCase();
+      this._locale = normalized === 'en' || normalized.startsWith('en-') ? 'en'
+        : normalized === 'es' || normalized.startsWith('es-') ? 'es' : 'pt-BR';
+      this._trainingView?.setLocale(this._locale);
+      const labels = localeUi[this._locale];
+      this._trigger?.setAttribute('aria-label', labels.trigger);
+      this._bubble?.querySelector('.close')?.setAttribute('aria-label', labels.close);
+    }
     get training() { return this._trainingRuntime.controller; }
     flyTo(target, options) {
       this._trainingRuntime.externalCommand();
@@ -190,6 +206,7 @@ export function defineDdocBot() {
     _createTrainingView() {
       this._trainingView = new TrainingView({
         bubble: this._bubble, status: this._status, closeButton: this._bubble.querySelector('.close'), trigger: this._trigger,
+        locale: this._locale,
         onAction: action => this.training[action](), onResize: () => this._positionBubble()
       });
     }

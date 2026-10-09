@@ -9,6 +9,6 @@ test('cabeçalho oferece atalho acessível para o repositório no GitHub', async
   assert.match(html, /href="https:\/\/github\.com\/dotDocType\/ddocBot"/);
   assert.match(html, /target="_blank"/);
   assert.match(html, /rel="noopener noreferrer"/);
-  assert.match(html, /aria-label="Abrir repositório ddocBot no GitHub"/);
+  assert.match(html, /data-i18n-aria-label="github\.aria"/);
   assert.match(html, /<svg[^>]+aria-hidden="true"/);
 });

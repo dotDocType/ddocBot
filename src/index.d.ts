@@ -23,6 +23,8 @@ export interface DdocBotElement extends HTMLElement {
   alertInterval: number;
   muted: boolean;
   volume: number;
+  /** Interface language for training controls; supports pt-BR, en and es. */
+  locale: 'pt-BR' | 'en' | 'es';
   movementWidth: number;
   beginTask(): string;
   endTask(id: string, options?: { outcome?: TaskOutcome }): void;
