@@ -174,6 +174,7 @@ dot-bot {
   bottom: 16px;
   --ddocbot-bubble-background: #fff;
   --ddocbot-bubble-color: #202a25;
+  --ddocbot-help-background: #fff;
 }
 ```
 
