@@ -5,7 +5,7 @@ import { BotNavigation } from './navigation.js';
 import { AlertPulse } from './alert.js';
 import { createTrainingRuntime } from './training/runtime.js';
 import { TrainingView } from './training/view.js';
-import { HELP_ICON_PATH, RETURN_DELAY_MS, helpResting, helpAppearance, advanceHelpReturn, helpHomeX } from './help.js';
+import { HELP_ICON_PATH, RETURN_DELAY_MS, NUDGE_MS, helpResting, helpAppearance, advanceHelpReturn, helpHomeX } from './help.js';
 
 const styles = `
 :host{position:fixed;right:16px;bottom:16px;display:block;width:min(160px,calc(100vw - 52px));height:24px;color:inherit;z-index:1000;font:14px/1.5 var(--ddocbot-font-family,system-ui,sans-serif);pointer-events:none}
@@ -22,6 +22,15 @@ canvas{position:absolute;width:24px;height:24px;image-rendering:pixelated;pointe
 canvas{transition:opacity .18s ease}
 canvas.is-hidden{opacity:0}
 @media (prefers-reduced-motion:reduce){.help,canvas{transition:none}}
+.trigger{overflow:visible}
+.help i{position:absolute;inset:0;border:2px solid currentColor;border-radius:50%;opacity:0}
+.help.nudge svg{animation:ddocbot-help-pulse .9s ease-in-out 2}
+.help.nudge i{animation:ddocbot-help-ring 1.4s ease-out forwards}
+.help.nudge i:nth-of-type(2){animation-delay:.25s}
+.help.nudge i:nth-of-type(3){animation-delay:.5s}
+@keyframes ddocbot-help-pulse{0%,100%{transform:scale(1)}40%{transform:scale(1.18)}}
+@keyframes ddocbot-help-ring{0%{transform:scale(1);opacity:.55}100%{transform:scale(2.6);opacity:0}}
+@media (prefers-reduced-motion:reduce){.help.nudge svg,.help.nudge i{animation:none}.help.nudge i:first-of-type{opacity:.35;transform:scale(1.5)}}
 `;
 const localeUi = {
   'pt-BR': { trigger: 'ddocBot, assistente', help: 'Ajuda', close: 'Fechar mensagem' },
@@ -39,7 +48,7 @@ export function defineDdocBot() {
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
-      this.shadowRoot.innerHTML = `<style>${styles}</style><canvas width="24" height="24" aria-hidden="true"></canvas><button class="trigger" type="button" aria-label="ddocBot, assistente"><span class="help" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="${HELP_ICON_PATH}"/></svg></span></button><div class="bubble" hidden><div role="status" aria-live="polite" aria-atomic="true"></div><button class="close" type="button" aria-label="Fechar mensagem">×</button></div>`;
+      this.shadowRoot.innerHTML = `<style>${styles}</style><canvas width="24" height="24" aria-hidden="true"></canvas><button class="trigger" type="button" aria-label="ddocBot, assistente"><span class="help" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="${HELP_ICON_PATH}"/></svg><i></i><i></i><i></i></span></button><div class="bubble" hidden><div role="status" aria-live="polite" aria-atomic="true"></div><button class="close" type="button" aria-label="Fechar mensagem">×</button></div>`;
       this._canvas = this.shadowRoot.querySelector('canvas'); this._context = this._canvas.getContext('2d');
       this._trigger = this.shadowRoot.querySelector('.trigger'); this._bubble = this.shadowRoot.querySelector('.bubble');
       this._status = this.shadowRoot.querySelector('[role=status]');
@@ -131,7 +140,7 @@ export function defineDdocBot() {
     disconnectedCallback() {
       this._trainingRuntime.destroy(); this._trainingView.destroy(); this._trainingView = null;
       this._trainingPresented = false; this._suppressReaction = false;
-      this._helpReturn = 0;
+      this._helpReturn = 0; this._stopNudge();
       this._sleep(); this._alert.update(0, false); this._audio.stopAlert(); this._dismissBubble(); this._navigation.destroy(); this._removeLayer(); this._landing = 0; this._audio.destroy(); this._engine.reset();
       this._resize?.disconnect(); this._appearance?.disconnect(); this._media?.removeEventListener('change', this._onMotion);
       document.removeEventListener('visibilitychange', this._onVisibility);
@@ -171,6 +180,22 @@ export function defineDdocBot() {
       this.toggleAttribute('help-button', enabled);
       if (this.isConnected) { this._render(); this._wake(); }
     }
+    nudge() {
+      if (!this.isConnected || this.ownerDocument.hidden) return false;
+      // say()/beginTask() only schedule a frame; sync so the answer reflects current conditions.
+      this._syncHelp();
+      if (this._helpView !== 'help') return false;
+      this._help.classList.remove('nudge');
+      void this._help.offsetWidth; // Restart the CSS animations from the first frame.
+      this._help.classList.add('nudge');
+      clearTimeout(this._nudgeTimer);
+      this._nudgeTimer = setTimeout(() => this._stopNudge(), NUDGE_MS);
+      return true;
+    }
+    _stopNudge() {
+      clearTimeout(this._nudgeTimer); this._nudgeTimer = null;
+      this._help.classList.remove('nudge');
+    }
     _syncTriggerLabel() {
       const labels = localeUi[this._locale];
       this._trigger?.setAttribute('aria-label', this._helpView === 'help' ? labels.help : labels.trigger);
@@ -185,6 +210,7 @@ export function defineDdocBot() {
       const view = helpAppearance({ ...input, returnRemaining: this._helpReturn });
       if (view === this._helpView) return;
       this._helpView = view;
+      if (view === 'bot') this._stopNudge();
       this._trigger.classList.toggle('is-help', view === 'help');
       this._canvas.classList.toggle('is-hidden', view === 'help');
       this._syncTriggerLabel();

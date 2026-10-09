@@ -88,3 +88,43 @@ test('icon color follows the host color and hides the canvas',async({page})=>{
   expect(await page.evaluate(()=>bot.shadowRoot.querySelector('canvas').classList.contains('is-hidden'))).toBe(true);
   expect(await page.evaluate(()=>bot.shadowRoot.querySelector('.help path').getAttribute('fill-rule'))).toBe('evenodd');
 });
+const nudging = page => page.evaluate(() => bot.shadowRoot.querySelector('.help')?.classList.contains('nudge') ?? false);
+test('nudge plays while the "?" is shown and restarts when repeated',async({page})=>{
+  expect(await page.evaluate(()=>bot.nudge())).toBe(true);
+  expect(await nudging(page)).toBe(true);
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(()=>bot.nudge())).toBe(true);
+  expect(await page.evaluate(()=>bot.shadowRoot.querySelector('.help i').getAnimations()[0]?.currentTime ?? 0)).toBeLessThan(200);
+  await expect.poll(()=>nudging(page),{timeout:3000}).toBe(false);
+});
+test('nudge is refused when the "?" is not shown',async({page})=>{
+  await page.getByRole('button',{name:'Ajuda'}).click();
+  expect(await page.evaluate(()=>bot.nudge())).toBe(false);
+  await expect.poll(()=>isHelp(page),{timeout:3000}).toBe(true);
+  await page.evaluate(()=>bot.say('Oi',{duration:0}));
+  expect(await page.evaluate(()=>bot.nudge())).toBe(false);
+  await page.evaluate(()=>{bot.dismissBubble();bot.helpButton=false;});
+  expect(await page.evaluate(()=>bot.nudge())).toBe(false);
+  await page.evaluate(()=>{bot.helpButton=true;Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});});
+  expect(await page.evaluate(()=>bot.nudge())).toBe(false);
+  await page.evaluate(()=>{delete document.hidden;});
+  expect(await page.evaluate(()=>bot.nudge())).toBe(true);
+  await page.evaluate(()=>bot.remove());
+  expect(await page.evaluate(()=>bot.nudge())).toBe(false);
+  expect(await nudging(page)).toBe(false);
+});
+test('activation or turning the mode off cancels a running nudge',async({page})=>{
+  await page.evaluate(()=>bot.nudge());
+  await page.getByRole('button',{name:'Ajuda'}).click();
+  expect(await nudging(page)).toBe(false);
+  await expect.poll(()=>isHelp(page),{timeout:3000}).toBe(true);
+  await page.evaluate(()=>{bot.nudge();bot.helpButton=false;});
+  expect(await nudging(page)).toBe(false);
+});
+test('reduced motion shows a static ring instead of the pulse',async({page})=>{
+  await page.emulateMedia({reducedMotion:'reduce'});
+  await page.evaluate(()=>bot.nudge());
+  const ring=await page.evaluate(()=>{const s=getComputedStyle(bot.shadowRoot.querySelector('.help i'));return {name:s.animationName,opacity:Number(s.opacity)};});
+  expect(ring.name).toBe('none');
+  expect(ring.opacity).toBeGreaterThan(0);
+});

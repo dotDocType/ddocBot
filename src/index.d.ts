@@ -32,6 +32,8 @@ export interface DdocBotElement extends HTMLElement {
   endTask(id: string, options?: { outcome?: TaskOutcome }): void;
   say(text: string, options?: { duration?: number }): void;
   dismissBubble(): void;
+  /** Plays the help icon attention animation once; false when the "?" is not shown. */
+  nudge(): boolean;
   enableSound(): Promise<boolean>;
   playSound(name?: SoundName): Promise<boolean>;
   playAudio(url: string): Promise<boolean>;
