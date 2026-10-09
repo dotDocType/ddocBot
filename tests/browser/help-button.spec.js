@@ -40,8 +40,9 @@ test('keyboard activation works like a click',async({page})=>{
 });
 test('a message inside the delay keeps the bot and restarts the delay',async({page})=>{
   await page.getByRole('button',{name:'Ajuda'}).click();
-  await page.evaluate(()=>bot.say('Oi',{duration:600}));
-  await page.waitForTimeout(1300);
+  // The bubble closes at ~1200 ms; a delay that kept counting from the click would show "?" at ~1500 ms.
+  await page.evaluate(()=>bot.say('Oi',{duration:1200}));
+  await page.waitForTimeout(2000);
   expect(await isHelp(page)).toBe(false);
   await expect.poll(()=>isHelp(page),{timeout:3000}).toBe(true);
 });
@@ -127,4 +128,21 @@ test('reduced motion shows a static ring instead of the pulse',async({page})=>{
   const ring=await page.evaluate(()=>{const s=getComputedStyle(bot.shadowRoot.querySelector('.help i'));return {name:s.animationName,opacity:Number(s.opacity)};});
   expect(ring.name).toBe('none');
   expect(ring.opacity).toBeGreaterThan(0);
+});
+test('help-button="false" keeps the mode off, like muted="false"',async({page})=>{
+  await page.evaluate(()=>bot.setAttribute('help-button','false'));
+  expect(await page.evaluate(()=>bot.helpButton)).toBe(false);
+  expect(await isHelp(page)).toBe(false);
+  await page.evaluate(()=>bot.setAttribute('help-button',''));
+  expect(await page.evaluate(()=>bot.helpButton)).toBe(true);
+});
+test('activity during the delay restarts it instead of letting it expire',async({page})=>{
+  await page.getByRole('button',{name:'Ajuda'}).click();
+  // A task keeps the frame loop running past the 1500 ms delay.
+  await page.evaluate(()=>{window.id=bot.beginTask();});
+  await page.waitForTimeout(1800);
+  await page.evaluate(()=>bot.endTask(id,{outcome:'cancelled'}));
+  await page.waitForTimeout(900);
+  expect(await isHelp(page)).toBe(false);
+  await expect.poll(()=>isHelp(page),{timeout:3000}).toBe(true);
 });

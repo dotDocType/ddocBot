@@ -137,11 +137,8 @@ Con `help-button`, ddocBot también sirve como botón de ayuda del sitio. En rep
 
 ```js
 bot.addEventListener('ddocbot-activate', () => bot.say('¿Cómo puedo ayudar?'));
-// Primera visita: llama la atención una vez. La biblioteca no guarda ese estado.
-if (!localStorage.getItem('ayuda-vista')) {
-  bot.nudge();
-  localStorage.setItem('ayuda-vista', '1');
-}
+// Primera visita: llama la atención una vez. nudge() devuelve false si el "?" no está visible (pestaña oculta, bot ocupado).
+if (!localStorage.getItem('ayuda-vista') && bot.nudge()) localStorage.setItem('ayuda-vista', '1');
 ```
 
 El nombre accesible del botón es "Ayuda" mientras el "?" está visible. Con `prefers-reduced-motion`, el cambio es instantáneo y `nudge()` muestra un anillo estático.

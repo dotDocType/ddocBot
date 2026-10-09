@@ -152,7 +152,7 @@ export function defineDdocBot() {
       if (name === 'volume') this.volume = value === null ? 0.35 : Number(value);
       if (name === 'muted') this.muted = value !== null && value !== 'false';
       if (name === 'locale') this.locale = value || 'pt-BR';
-      if (name === 'help-button') this.helpButton = value !== null;
+      if (name === 'help-button') this.helpButton = value !== null && value !== 'false';
     }
     get alertSound() { return this._alertSound; }
     set alertSound(value) {
@@ -177,7 +177,11 @@ export function defineDdocBot() {
       const enabled = Boolean(value);
       if (enabled === this._helpButton) return;
       this._helpButton = enabled; this._helpReturn = 0;
-      this.toggleAttribute('help-button', enabled);
+      // Like muted, help-button="false" counts as off; only rewrite the attribute when it disagrees.
+      const attribute = this.getAttribute('help-button');
+      if ((attribute !== null && attribute !== 'false') !== enabled) {
+        if (enabled) this.setAttribute('help-button', ''); else this.removeAttribute('help-button');
+      }
       if (this.isConnected) { this._render(); this._wake(); }
     }
     nudge() {

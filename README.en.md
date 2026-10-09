@@ -137,11 +137,8 @@ With `help-button`, ddocBot also works as the site's help button. At rest it sho
 
 ```js
 bot.addEventListener('ddocbot-activate', () => bot.say('How can I help?'));
-// First visit: call attention once. The library keeps no such state.
-if (!localStorage.getItem('help-seen')) {
-  bot.nudge();
-  localStorage.setItem('help-seen', '1');
-}
+// First visit: call attention once. nudge() returns false when the "?" is not shown (hidden tab, busy bot).
+if (!localStorage.getItem('help-seen') && bot.nudge()) localStorage.setItem('help-seen', '1');
 ```
 
 The button's accessible name is "Help" while the "?" is shown. With `prefers-reduced-motion`, the swap is instant and `nudge()` shows a static ring.
