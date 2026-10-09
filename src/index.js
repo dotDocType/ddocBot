@@ -17,13 +17,13 @@ canvas{position:absolute;width:24px;height:24px;image-rendering:pixelated;pointe
 .close{position:absolute;right:5px;top:5px;width:28px;height:28px;border:0;background:transparent;color:inherit;font-size:20px;cursor:pointer;border-radius:5px}
 .close:focus-visible{outline:2px solid currentColor}
 .help{position:absolute;left:10px;top:10px;width:24px;height:24px;pointer-events:none;opacity:0;transform:scale(.42);transition:opacity .18s ease,transform .18s ease}
-.help svg{display:block;width:24px;height:24px}
+.help svg{display:block;width:24px;height:24px;border-radius:50%;background:var(--ddocbot-help-background,#fff);box-shadow:0 0 0 1px var(--ddocbot-help-background,#fff),0 0 0 3px currentColor}
 .trigger.is-help .help{opacity:1;transform:none}
 canvas{transition:opacity .18s ease}
 canvas.is-hidden{opacity:0}
 @media (prefers-reduced-motion:reduce){.help,canvas{transition:none}}
 .trigger{overflow:visible}
-.help i{position:absolute;inset:0;border:2px solid currentColor;border-radius:50%;opacity:0}
+.help i{position:absolute;inset:-3px;border:2px solid currentColor;border-radius:50%;opacity:0}
 .help.nudge svg{animation:ddocbot-help-pulse .9s ease-in-out 2}
 .help.nudge i{animation:ddocbot-help-ring 1.4s ease-out forwards}
 .help.nudge i:nth-of-type(2){animation-delay:.25s}

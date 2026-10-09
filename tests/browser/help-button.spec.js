@@ -146,3 +146,13 @@ test('activity during the delay restarts it instead of letting it expire',async(
   expect(await isHelp(page)).toBe(false);
   await expect.poll(()=>isHelp(page),{timeout:3000}).toBe(true);
 });
+test('the "?" sits on a solid background with a halo and an outer ring in the button color',async({page})=>{
+  const look=()=>page.evaluate(()=>{const s=getComputedStyle(bot.shadowRoot.querySelector('.help svg'));return {background:s.backgroundColor,shadow:s.boxShadow};});
+  const plain=await look();
+  expect(plain.background).toBe('rgb(255, 255, 255)');
+  expect(plain.shadow).toBe('rgb(255, 255, 255) 0px 0px 0px 1px, rgb(56, 99, 75) 0px 0px 0px 3px');
+  await page.evaluate(()=>bot.style.setProperty('--ddocbot-help-background','rgb(250, 240, 220)'));
+  const custom=await look();
+  expect(custom.background).toBe('rgb(250, 240, 220)');
+  expect(custom.shadow).toBe('rgb(250, 240, 220) 0px 0px 0px 1px, rgb(56, 99, 75) 0px 0px 0px 3px');
+});
