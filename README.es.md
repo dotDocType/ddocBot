@@ -129,7 +129,7 @@ La demostración incluye los controles **Sonido de alerta** e **Intervalo (ms)**
 
 ## Botón de ayuda
 
-Con `help-button`, ddocBot también sirve como botón de ayuda del sitio. En reposo muestra un "?" vectorial en el color del elemento, en el borde derecho de la franja. Al activarlo se convierte en el punto y emite `ddocbot-activate`; el sitio decide qué hacer. Cuando no hay globo, tarea, vuelo ni entrenamiento, vuelve al "?" después de 1,5 s.
+Con `help-button`, ddocBot también sirve como botón de ayuda del sitio. En reposo muestra un "?" vectorial en el color del elemento, en el extremo de la franja más cercano al borde de la pantalla: la esquina derecha por defecto, la izquierda con `dot-bot { left: 16px; right: auto; }`. Al activarlo se convierte en el punto y emite `ddocbot-activate`; el sitio decide qué hacer. Cuando no hay globo, tarea, vuelo ni entrenamiento, vuelve al "?" después de 1,5 s.
 
 ```html
 <dot-bot help-button style="color: #38634b"></dot-bot>

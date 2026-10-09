@@ -5,7 +5,7 @@ import { BotNavigation } from './navigation.js';
 import { AlertPulse } from './alert.js';
 import { createTrainingRuntime } from './training/runtime.js';
 import { TrainingView } from './training/view.js';
-import { HELP_ICON_PATH, RETURN_DELAY_MS, NUDGE_MS, helpResting, helpAppearance, advanceHelpReturn, helpHomeX } from './help.js';
+import { HELP_ICON_PATH, RETURN_DELAY_MS, NUDGE_MS, helpResting, helpAppearance, advanceHelpReturn, helpHomeX, helpSide } from './help.js';
 
 const styles = `
 :host{position:fixed;right:16px;bottom:16px;display:block;width:min(160px,calc(100vw - 52px));height:24px;color:inherit;z-index:1000;font:14px/1.5 var(--ddocbot-font-family,system-ui,sans-serif);pointer-events:none}
@@ -406,9 +406,10 @@ export function defineDdocBot() {
     _render() {
       if (!this.isConnected) return;
       this._syncAlert();
-      const width = Math.max(24, this.getBoundingClientRect().width);
+      const band = this.getBoundingClientRect();
+      const width = Math.max(24, band.width);
       this._syncHelp();
-      if (this._helpView === 'help') this._engine.x = helpHomeX(width);
+      if (this._helpView === 'help') this._engine.x = helpHomeX(width, helpSide(band, this.ownerDocument.defaultView.innerWidth));
       let snapshot = this._engine.snapshot();
       const css = getComputedStyle(this);
       if (this._navigation.active) {
