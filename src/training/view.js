@@ -1,5 +1,15 @@
 const failures = new Set(['timeout', 'target-lost', 'ambiguous-target', 'target-resolution-failed']);
 const liveStates = new Set(['waiting-route', 'waiting-target', 'presenting', 'active', 'paused']);
+// 24px-grid icons; stroked ones draw outlines, the rest are filled shapes.
+const icons = {
+  previous: { d: 'M15 6l-6 6 6 6', stroke: true },
+  next: { d: 'M9 6l6 6-6 6', stroke: true },
+  complete: { d: 'M5 12.5l4.5 4.5L19 7.5', stroke: true },
+  pause: { d: 'M7 5h3.5v14H7zM13.5 5H17v14h-3.5z' },
+  resume: { d: 'M8 5.5v13l10.5-6.5z' },
+  retry: { d: 'M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4h-4', stroke: true },
+  stop: { d: 'M6.5 6.5h11v11h-11z' }
+};
 
 const labels = {
   'pt-BR': {
@@ -50,6 +60,8 @@ export class TrainingView {
     };
     this.instruction = element('div', 'ddocbot-training-instruction');
     this.progress = element('div', 'ddocbot-training-progress');
+    this.counter = element('span', 'ddocbot-training-counter');
+    this.counter.setAttribute('aria-hidden', 'true');
     this.hint = element('div', 'ddocbot-training-hint');
     this.feedback = element('div', 'ddocbot-training-feedback');
     this.feedback.setAttribute('aria-live', 'polite');
@@ -57,19 +69,28 @@ export class TrainingView {
     this.controls = element('div', 'ddocbot-training-controls');
     this.style = this.doc.createElement('style');
     this.style.textContent = `
-      .ddocbot-training-progress{font-size:12px;opacity:.75;margin-top:8px}
+      .ddocbot-training-active{padding-right:16px}
+      .ddocbot-training-progress{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
       .ddocbot-training-hint,.ddocbot-training-feedback{font-size:13px;margin-top:10px;white-space:pre-wrap;overflow-wrap:anywhere}
       .ddocbot-training-feedback:empty{margin:0}
-      .ddocbot-training-controls{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px;white-space:normal}
-      .ddocbot-training-controls button{box-sizing:border-box;min-width:44px;min-height:44px;padding:8px 10px;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;font:inherit;cursor:pointer}
+      .ddocbot-training-controls{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:10px;white-space:normal}
+      .ddocbot-training-counter{margin-right:auto;padding-right:8px;font-size:12px;opacity:.75}
+      .ddocbot-training-controls button{box-sizing:border-box;display:grid;place-items:center;width:32px;height:32px;padding:0;border:0;border-radius:6px;background:transparent;color:inherit;cursor:pointer}
+      .ddocbot-training-controls button svg{width:16px;height:16px}
+      .ddocbot-training-controls button:not(:disabled):hover{background:color-mix(in srgb,currentColor 10%,transparent)}
+      .ddocbot-training-controls .ddocbot-training-primary{background:currentColor}
+      .ddocbot-training-controls .ddocbot-training-primary svg{color:var(--ddocbot-bubble-background,#fff)}
+      .ddocbot-training-controls .ddocbot-training-primary:not(:disabled):hover{background:currentColor;opacity:.85}
       .ddocbot-training-controls button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
-      .ddocbot-training-controls button:disabled{opacity:.45;cursor:default}
+      .ddocbot-training-controls button:disabled{opacity:.35;cursor:default}
       .ddocbot-training-controls [hidden],.ddocbot-training-hint[hidden],.ddocbot-training-feedback[hidden],.ddocbot-training-controls[hidden]{display:none!important}
     `;
     this.buttons = {};
-    for (const [action, label] of Object.entries({ previous: this.labels.previous, next: this.labels.next, pause: this.labels.pause, resume: this.labels.resume, stop: this.labels.stop })) {
-      const button = element('button', '');
-      button.type = 'button'; button.textContent = label;
+    this.controls.append(this.counter);
+    for (const action of ['previous', 'pause', 'resume', 'stop', 'next']) {
+      const button = element('button', action === 'next' ? 'ddocbot-training-primary' : '');
+      button.type = 'button';
+      this._setButton(button, action);
       button.addEventListener('click', () => { if (this.active) this.onAction(action); });
       this.buttons[action] = button;
       this.controls.append(button);
@@ -88,13 +109,20 @@ export class TrainingView {
     this.locale = locale;
     this.labels = trainingLabels(locale);
     if (this.buttons) {
-      this.buttons.previous.textContent = this.labels.previous;
-      this.buttons.next.textContent = this.labels.next;
-      this.buttons.pause.textContent = this.labels.pause;
-      this.buttons.resume.textContent = this.labels.resume;
-      this.buttons.stop.textContent = this.labels.stop;
+      for (const [action, button] of Object.entries(this.buttons)) this._setButton(button, action);
       if (this.snapshot && this.active) this.render(this.snapshot);
     }
+  }
+
+  /** Icon-only buttons carry their localized name in aria-label and the hover tooltip. */
+  _setButton(button, key) {
+    const label = this.labels[key];
+    button.setAttribute('aria-label', label); button.title = label;
+    if (button.dataset.icon === key) return;
+    button.dataset.icon = key;
+    const { d, stroke } = icons[key];
+    const paint = stroke ? 'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"' : 'fill="currentColor"';
+    button.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path ${paint} d="${d}"/></svg>`;
   }
 
   _listen(name, handler) {
@@ -113,9 +141,11 @@ export class TrainingView {
     if (changedStep) this._clearMessage();
     this.stepId = snapshot.step.id; this.index = snapshot.index; this.token = snapshot.token;
     this.active = true;
+    this.bubble.classList.add('ddocbot-training-active');
     this.bubble.hidden = false;
     if (this.instruction.parentNode !== this.status) this.status.replaceChildren(this.instruction, this.progress);
     const progress = this.labels.progress({ current: snapshot.index + 1, total: snapshot.total });
+    this.counter.textContent = progress;
     const content = `${snapshot.step.text}\n${progress}`;
     if (changedStep || this.instructionContent !== content) {
       this.instructionContent = content;
@@ -135,10 +165,10 @@ export class TrainingView {
     this.hint.textContent = hint; this.hint.hidden = !hint;
     this.buttons.previous.disabled = snapshot.index === 0;
     this.buttons.next.hidden = !active || snapshot.step.advance.type !== 'manual';
-    this.buttons.next.textContent = snapshot.index === snapshot.total - 1 ? this.labels.complete : this.labels.next;
+    this._setButton(this.buttons.next, snapshot.index === snapshot.total - 1 ? 'complete' : 'next');
     this.buttons.pause.hidden = paused;
     this.buttons.resume.hidden = !paused;
-    this.buttons.resume.textContent = failures.has(snapshot.reason) ? this.labels.retry : this.labels.resume;
+    this._setButton(this.buttons.resume, failures.has(snapshot.reason) ? 'retry' : 'resume');
     this.closeButton.hidden = true;
     this.controls.hidden = false;
     this.bubble.hidden = false;
@@ -238,7 +268,8 @@ export class TrainingView {
     this.hint.textContent = '';
     this.closeButton.hidden = false;
     this.status.textContent = '';
-    this.instruction.textContent = ''; this.progress.textContent = ''; this.instructionContent = null;
+    this.instruction.textContent = ''; this.progress.textContent = ''; this.counter.textContent = ''; this.instructionContent = null;
+    this.bubble.classList.remove('ddocbot-training-active');
     this.bubble.hidden = true;
     if (controlledFocus && this.trigger.isConnected && this.visible) this.trigger.focus({ preventScroll: true });
     this.onResize();
