@@ -26,6 +26,8 @@ export interface DdocBotElement extends HTMLElement {
   /** Interface language for training controls; supports pt-BR, en and es. */
   locale: 'pt-BR' | 'en' | 'es';
   movementWidth: number;
+  /** Shows a "?" help icon while the bot rests; reflects the `help-button` attribute. */
+  helpButton: boolean;
   beginTask(): string;
   endTask(id: string, options?: { outcome?: TaskOutcome }): void;
   say(text: string, options?: { duration?: number }): void;
