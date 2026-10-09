@@ -78,6 +78,8 @@ $('sound').onclick = async () => {
   refreshSoundLabel();
 };
 $('beep').onclick = () => bot.playSound('beep');
+$('help-button').onchange = event => { bot.helpButton = event.target.checked; $('nudge').disabled = !event.target.checked; };
+$('nudge').onclick = () => bot.nudge();
 $('alert-sound').onchange = async event => {
   bot.alertSound = event.target.value || null;
   if (bot.alertSound && bot.muted) await bot.enableSound();

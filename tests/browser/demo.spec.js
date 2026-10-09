@@ -73,3 +73,13 @@ test('demo cycles the supported languages and remembers the selection', async ({
  await expect(page.locator('html')).toHaveAttribute('lang', 'es');
  await expect(page.locator('h1')).toContainText('Pequeño punto.');
 });
+test('demo toggles the help button and nudges it',async({page})=>{
+  await page.goto('/');
+  await expect(page.getByRole('button',{name:'Chamar atenção'})).toBeDisabled();
+  await page.getByLabel('Botão de ajuda').check();
+  await expect(page.getByRole('button',{name:'Ajuda'})).toBeVisible();
+  await page.getByRole('button',{name:'Chamar atenção'}).click();
+  expect(await page.evaluate(()=>document.querySelector('#ddocbot').shadowRoot.querySelector('.help').classList.contains('nudge'))).toBe(true);
+  await page.getByLabel('Botão de ajuda').uncheck();
+  await expect(page.getByRole('button',{name:'Chamar atenção'})).toBeDisabled();
+});

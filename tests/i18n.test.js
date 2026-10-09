@@ -42,3 +42,9 @@ test('controles internos do treinamento acompanham o idioma da demo', () => {
   assert.equal(trainingLabels('es').pause, 'Pausar');
   assert.equal(trainingLabels('pt-BR').previous, 'Voltar');
 });
+
+test('help button controls are translated', () => {
+  assert.equal(translate('pt-BR', 'controls.helpButton'), 'Botão de ajuda');
+  assert.equal(translate('en', 'controls.nudge'), 'Get attention');
+  assert.equal(translate('es', 'controls.helpButton'), 'Botón de ayuda');
+});
