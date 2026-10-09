@@ -23,11 +23,17 @@ export interface DdocBotElement extends HTMLElement {
   alertInterval: number;
   muted: boolean;
   volume: number;
+  /** Interface language for training controls; supports pt-BR, en and es. */
+  locale: 'pt-BR' | 'en' | 'es';
   movementWidth: number;
+  /** Shows a "?" help icon while the bot rests; reflects the `help-button` attribute. */
+  helpButton: boolean;
   beginTask(): string;
   endTask(id: string, options?: { outcome?: TaskOutcome }): void;
   say(text: string, options?: { duration?: number }): void;
   dismissBubble(): void;
+  /** Plays the help icon attention animation once; false when the "?" is not shown. */
+  nudge(): boolean;
   enableSound(): Promise<boolean>;
   playSound(name?: SoundName): Promise<boolean>;
   playAudio(url: string): Promise<boolean>;

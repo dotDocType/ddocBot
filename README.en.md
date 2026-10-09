@@ -62,6 +62,8 @@ Without a bundler, serve the `src` directory with all its modules and use `<scri
 | `muted: boolean` | Defaults to `true`. Muting stops sounds. Setting it to `false` does not bypass the browser audio policy. |
 | `volume: number` | Defaults to `0.35`; clamped to `0…1`, with non-finite values rejected. |
 | `movementWidth: number` | Defaults to `160`, with a minimum of `24`; the effective width is limited to the viewport. |
+| `helpButton: boolean` | Defaults to `false`. At rest shows a "?" icon instead of the dot; when activated it becomes ddocBot and returns to "?" 1.5 s after everything settles. Reflects the `help-button` attribute. |
+| `nudge(): boolean` | Calls attention to the "?" once (pulse and rings). Returns `false` when the "?" is not shown. |
 | `state` (read-only) | `idle`, `opening`, `processing`, `success`, `error`, or `closing`. |
 | `flyTo(target, { duration = 700 }): Promise` | Flies to an element, CSS selector, or document coordinate `{ x, y }`. Returns `arrived`, `cancelled`, or `target-unavailable`. |
 | `pointAt(target): boolean` | Points the laser at an available target and reports whether the command was accepted. |
@@ -70,7 +72,7 @@ Without a bundler, serve the `src` directory with all its modules and use `<scri
 | `navigationState` (read-only) | `home`, `flying`, `hovering`, `pointing`, or `returning`. |
 | `training` (read-only) | Stable controller for loading scripts and tracking sequential training. See the training section below. |
 
-Available attributes: `movement-width`, `volume`, and `muted`. Audio starts muted even without the `muted` attribute. Removing that attribute after setting it clears the preference, but `enableSound()` is still required to create and unlock audio resources.
+Available attributes: `movement-width`, `volume`, `muted`, and `help-button`. Audio starts muted even without the `muted` attribute. Removing that attribute after setting it clears the preference, but `enableSound()` is still required to create and unlock audio resources.
 
 ```js
 soundButton.addEventListener('click', async () => {
@@ -124,6 +126,22 @@ dot-bot { --ddocbot-alert-color: #e64040; }
 ```
 
 The demo includes **Alert sound** and **Interval (ms)** controls next to the laser commands. Selecting a sound asks the browser to enable it; **No sound** keeps only the waves.
+
+## Help button
+
+With `help-button`, ddocBot also works as the site's help button. At rest it shows a vector "?" in the element color, at the right edge of the band. When activated it becomes the dot and emits `ddocbot-activate`; the site decides what happens. When there is no bubble, task, flight, or training, it returns to "?" after 1.5 s.
+
+```html
+<dot-bot help-button style="color: #38634b"></dot-bot>
+```
+
+```js
+bot.addEventListener('ddocbot-activate', () => bot.say('How can I help?'));
+// First visit: call attention once. nudge() returns false when the "?" is not shown (hidden tab, busy bot).
+if (!localStorage.getItem('help-seen') && bot.nudge()) localStorage.setItem('help-seen', '1');
+```
+
+The button's accessible name is "Help" while the "?" is shown. With `prefers-reduced-motion`, the swap is instant and `nudge()` shows a static ring.
 
 ## Events
 

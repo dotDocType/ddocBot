@@ -58,3 +58,28 @@ test('demo message bubble uses the DDOC theme at home and in the navigation port
  expect(firstFont(appearance.home.font)).toBe('Inter');
  expect(firstFont(appearance.portal.font)).toBe('Inter');
 });
+
+test('demo cycles the supported languages and remembers the selection', async ({ page }) => {
+ await page.goto('/');
+ await expect(page.locator('#language-flag')).toHaveText('🇧🇷');
+ await page.locator('#language-switch').click();
+ await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+ await expect(page.locator('h1')).toContainText('Little point.');
+ await expect(page.locator('#language-flag')).toHaveText('🇺🇸');
+ await page.reload();
+ await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+ await expect(page.locator('#language-flag')).toHaveText('🇺🇸');
+ await page.locator('#language-switch').click();
+ await expect(page.locator('html')).toHaveAttribute('lang', 'es');
+ await expect(page.locator('h1')).toContainText('Pequeño punto.');
+});
+test('demo toggles the help button and nudges it',async({page})=>{
+  await page.goto('/');
+  await expect(page.getByRole('button',{name:'Chamar atenção'})).toBeDisabled();
+  await page.getByLabel('Botão de ajuda').check();
+  await expect(page.getByRole('button',{name:'Ajuda'})).toBeVisible();
+  await page.getByRole('button',{name:'Chamar atenção'}).click();
+  expect(await page.evaluate(()=>document.querySelector('#ddocbot').shadowRoot.querySelector('.help').classList.contains('nudge'))).toBe(true);
+  await page.getByLabel('Botão de ajuda').uncheck();
+  await expect(page.getByRole('button',{name:'Chamar atenção'})).toBeDisabled();
+});

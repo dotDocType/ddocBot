@@ -5,6 +5,7 @@ import { BotNavigation } from './navigation.js';
 import { AlertPulse } from './alert.js';
 import { createTrainingRuntime } from './training/runtime.js';
 import { TrainingView } from './training/view.js';
+import { HELP_ICON_PATH, RETURN_DELAY_MS, NUDGE_MS, helpResting, helpAppearance, advanceHelpReturn, helpHomeX } from './help.js';
 
 const styles = `
 :host{position:fixed;right:16px;bottom:16px;display:block;width:min(160px,calc(100vw - 52px));height:24px;color:inherit;z-index:1000;font:14px/1.5 var(--ddocbot-font-family,system-ui,sans-serif);pointer-events:none}
@@ -15,7 +16,27 @@ canvas{position:absolute;width:24px;height:24px;image-rendering:pixelated;pointe
 .bubble{position:fixed;bottom:56px;width:max-content;max-width:min(280px,calc(100vw - 24px));max-height:min(320px,calc(100dvh - 80px));overflow:auto;padding:14px 38px 14px 16px;background:var(--ddocbot-bubble-background,#fff);color:var(--ddocbot-bubble-color,#202a25);border:1px solid var(--ddocbot-bubble-border,#cbd4cd);border-radius:12px;box-shadow:var(--ddocbot-bubble-shadow,0 6px 24px #00000012);pointer-events:auto;overflow-wrap:anywhere;white-space:pre-wrap}
 .close{position:absolute;right:5px;top:5px;width:28px;height:28px;border:0;background:transparent;color:inherit;font-size:20px;cursor:pointer;border-radius:5px}
 .close:focus-visible{outline:2px solid currentColor}
+.help{position:absolute;left:10px;top:10px;width:24px;height:24px;pointer-events:none;opacity:0;transform:scale(.42);transition:opacity .18s ease,transform .18s ease}
+.help svg{display:block;width:24px;height:24px}
+.trigger.is-help .help{opacity:1;transform:none}
+canvas{transition:opacity .18s ease}
+canvas.is-hidden{opacity:0}
+@media (prefers-reduced-motion:reduce){.help,canvas{transition:none}}
+.trigger{overflow:visible}
+.help i{position:absolute;inset:0;border:2px solid currentColor;border-radius:50%;opacity:0}
+.help.nudge svg{animation:ddocbot-help-pulse .9s ease-in-out 2}
+.help.nudge i{animation:ddocbot-help-ring 1.4s ease-out forwards}
+.help.nudge i:nth-of-type(2){animation-delay:.25s}
+.help.nudge i:nth-of-type(3){animation-delay:.5s}
+@keyframes ddocbot-help-pulse{0%,100%{transform:scale(1)}40%{transform:scale(1.18)}}
+@keyframes ddocbot-help-ring{0%{transform:scale(1);opacity:.55}100%{transform:scale(2.6);opacity:0}}
+@media (prefers-reduced-motion:reduce){.help.nudge svg,.help.nudge i{animation:none}.help.nudge i:first-of-type{opacity:.35;transform:scale(1.5)}}
 `;
+const localeUi = {
+  'pt-BR': { trigger: 'ddocBot, assistente', help: 'Ajuda', close: 'Fechar mensagem' },
+  en: { trigger: 'ddocBot, assistant', help: 'Help', close: 'Close message' },
+  es: { trigger: 'ddocBot, asistente', help: 'Ayuda', close: 'Cerrar mensaje' }
+};
 
 /** Register on the client. Importing this module is safe in Node/SSR. */
 export function defineDdocBot() {
@@ -23,14 +44,15 @@ export function defineDdocBot() {
   const registered = customElements.get('dot-bot');
   if (registered) return registered;
   class DdocBot extends HTMLElement {
-    static observedAttributes = ['movement-width', 'muted', 'volume'];
+    static observedAttributes = ['movement-width', 'muted', 'volume', 'locale', 'help-button'];
     constructor() {
       super();
       this.attachShadow({ mode: 'open' });
-      this.shadowRoot.innerHTML = `<style>${styles}</style><canvas width="24" height="24" aria-hidden="true"></canvas><button class="trigger" type="button" aria-label="ddocBot, assistente"></button><div class="bubble" hidden><div role="status" aria-live="polite" aria-atomic="true"></div><button class="close" type="button" aria-label="Fechar mensagem">×</button></div>`;
+      this.shadowRoot.innerHTML = `<style>${styles}</style><canvas width="24" height="24" aria-hidden="true"></canvas><button class="trigger" type="button" aria-label="ddocBot, assistente"><span class="help" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path fill="currentColor" fill-rule="evenodd" d="${HELP_ICON_PATH}"/></svg><i></i><i></i><i></i></span></button><div class="bubble" hidden><div role="status" aria-live="polite" aria-atomic="true"></div><button class="close" type="button" aria-label="Fechar mensagem">×</button></div>`;
       this._canvas = this.shadowRoot.querySelector('canvas'); this._context = this._canvas.getContext('2d');
       this._trigger = this.shadowRoot.querySelector('.trigger'); this._bubble = this.shadowRoot.querySelector('.bubble');
       this._status = this.shadowRoot.querySelector('[role=status]');
+      this._help = this.shadowRoot.querySelector('.help');
       this._viewRoot = this.shadowRoot; this._landing = 0;
       this._alert = new AlertPulse(); this._alertSound = null;
       this._audio = new BotAudio(detail => this._emit('ddocbot-audioerror', detail));
@@ -52,7 +74,8 @@ export function defineDdocBot() {
         onTargetLost: detail => this._emit('ddocbot-targetlost', detail),
         wake: () => this._wake()
       });
-      this._movementWidth = 160; this._remaining = 0; this._pauses = new Set();
+      this._movementWidth = 160; this._locale = 'pt-BR'; this._remaining = 0; this._pauses = new Set();
+      this._helpButton = false; this._helpReturn = 0; this._helpView = 'bot'; this._helpPending = false;
       this._trainingRuntime = createTrainingRuntime({
         host: this,
         presentation: {
@@ -77,7 +100,11 @@ export function defineDdocBot() {
         emit: (name, detail) => this._emit(name, detail)
       });
       this._createTrainingView();
-      this._trigger.addEventListener('click', () => this._emit('ddocbot-activate', {}));
+      this._trigger.addEventListener('click', () => {
+        // Show the dot before listeners run, so a say() from the handler appears beside it.
+        if (this._helpButton) { this._helpReturn = RETURN_DELAY_MS; this._render(); this._wake(); }
+        this._emit('ddocbot-activate', {});
+      });
       this.shadowRoot.querySelector('.close').addEventListener('click', () => this.dismissBubble());
       this._bubble.addEventListener('pointerenter', () => this._pauseBubble('hover'));
       this._bubble.addEventListener('pointerleave', () => this._resumeBubble('hover'));
@@ -94,7 +121,7 @@ export function defineDdocBot() {
     connectedCallback() {
       if (!this._trainingView) this._createTrainingView();
       // Restore properties assigned before customElements.define upgraded this node.
-      for (const prop of ['muted', 'volume', 'movementWidth', 'alertSound', 'alertInterval']) {
+      for (const prop of ['muted', 'volume', 'movementWidth', 'alertSound', 'alertInterval', 'locale', 'helpButton']) {
         if (Object.prototype.hasOwnProperty.call(this, prop)) { const value = this[prop]; delete this[prop]; this[prop] = value; }
       }
       this._media = matchMedia('(prefers-reduced-motion: reduce)');
@@ -113,6 +140,7 @@ export function defineDdocBot() {
     disconnectedCallback() {
       this._trainingRuntime.destroy(); this._trainingView.destroy(); this._trainingView = null;
       this._trainingPresented = false; this._suppressReaction = false;
+      this._helpReturn = 0; this._stopNudge();
       this._sleep(); this._alert.update(0, false); this._audio.stopAlert(); this._dismissBubble(); this._navigation.destroy(); this._removeLayer(); this._landing = 0; this._audio.destroy(); this._engine.reset();
       this._resize?.disconnect(); this._appearance?.disconnect(); this._media?.removeEventListener('change', this._onMotion);
       document.removeEventListener('visibilitychange', this._onVisibility);
@@ -123,6 +151,8 @@ export function defineDdocBot() {
       if (name === 'movement-width') this.movementWidth = value === null ? 160 : Number(value);
       if (name === 'volume') this.volume = value === null ? 0.35 : Number(value);
       if (name === 'muted') this.muted = value !== null && value !== 'false';
+      if (name === 'locale') this.locale = value || 'pt-BR';
+      if (name === 'help-button') this.helpButton = value !== null && value !== 'false';
     }
     get alertSound() { return this._alertSound; }
     set alertSound(value) {
@@ -133,6 +163,62 @@ export function defineDdocBot() {
     get alertInterval() { return this._alert.interval; }
     set alertInterval(value) { this._alert.interval = value; this._wake(); }
     get navigationState() { return this._navigation.state; }
+    get locale() { return this._locale; }
+    set locale(value) {
+      const normalized = String(value || '').toLowerCase();
+      this._locale = normalized === 'en' || normalized.startsWith('en-') ? 'en'
+        : normalized === 'es' || normalized.startsWith('es-') ? 'es' : 'pt-BR';
+      this._trainingView?.setLocale(this._locale);
+      this._syncTriggerLabel();
+      this._bubble?.querySelector('.close')?.setAttribute('aria-label', localeUi[this._locale].close);
+    }
+    get helpButton() { return this._helpButton; }
+    set helpButton(value) {
+      const enabled = Boolean(value);
+      if (enabled === this._helpButton) return;
+      this._helpButton = enabled; this._helpReturn = 0;
+      // Like muted, help-button="false" counts as off; only rewrite the attribute when it disagrees.
+      const attribute = this.getAttribute('help-button');
+      if ((attribute !== null && attribute !== 'false') !== enabled) {
+        if (enabled) this.setAttribute('help-button', ''); else this.removeAttribute('help-button');
+      }
+      if (this.isConnected) { this._render(); this._wake(); }
+    }
+    nudge() {
+      if (!this.isConnected || this.ownerDocument.hidden) return false;
+      // say()/beginTask() only schedule a frame; sync so the answer reflects current conditions.
+      this._syncHelp();
+      if (this._helpView !== 'help') return false;
+      this._help.classList.remove('nudge');
+      void this._help.offsetWidth; // Restart the CSS animations from the first frame.
+      this._help.classList.add('nudge');
+      clearTimeout(this._nudgeTimer);
+      this._nudgeTimer = setTimeout(() => this._stopNudge(), NUDGE_MS);
+      return true;
+    }
+    _stopNudge() {
+      clearTimeout(this._nudgeTimer); this._nudgeTimer = null;
+      this._help.classList.remove('nudge');
+    }
+    _syncTriggerLabel() {
+      const labels = localeUi[this._locale];
+      this._trigger?.setAttribute('aria-label', this._helpView === 'help' ? labels.help : labels.trigger);
+    }
+    /** The only place the help appearance changes; dt advances the return delay. */
+    _syncHelp(dt = 0) {
+      const input = { enabled: this._helpButton, state: this.state, navigationState: this.navigationState,
+        bubbleOpen: !this._bubble.hidden, trainingRunning: this._trainingRuntime.running };
+      const resting = helpResting(input);
+      this._helpReturn = advanceHelpReturn(this._helpReturn, resting, dt);
+      this._helpPending = resting && this._helpReturn > 0;
+      const view = helpAppearance({ ...input, returnRemaining: this._helpReturn });
+      if (view === this._helpView) return;
+      this._helpView = view;
+      if (view === 'bot') this._stopNudge();
+      this._trigger.classList.toggle('is-help', view === 'help');
+      this._canvas.classList.toggle('is-hidden', view === 'help');
+      this._syncTriggerLabel();
+    }
     get training() { return this._trainingRuntime.controller; }
     flyTo(target, options) {
       this._trainingRuntime.externalCommand();
@@ -186,10 +272,12 @@ export function defineDdocBot() {
       this._cancelBubbleTimer();
       if (this._bubble.contains(this._viewRoot.activeElement)) this._trigger.focus();
       this._bubble.hidden = true; this._status.textContent = '';
+      this._wake();
     }
     _createTrainingView() {
       this._trainingView = new TrainingView({
         bubble: this._bubble, status: this._status, closeButton: this._bubble.querySelector('.close'), trigger: this._trigger,
+        locale: this._locale,
         onAction: action => this.training[action](), onResize: () => this._positionBubble()
       });
     }
@@ -279,6 +367,8 @@ export function defineDdocBot() {
       if (!this.isConnected) return;
       this._syncAlert();
       const width = Math.max(24, this.getBoundingClientRect().width);
+      this._syncHelp();
+      if (this._helpView === 'help') this._engine.x = helpHomeX(width);
       let snapshot = this._engine.snapshot();
       const css = getComputedStyle(this);
       if (this._navigation.active) {
@@ -335,8 +425,9 @@ export function defineDdocBot() {
         this._navigation.update(dt);
         this._syncAlert(dt);
         this._landing = Math.max(0, this._landing - dt);
+        this._syncHelp(dt);
         this._render();
-        if (this.state !== 'idle' || this._navigation.active || this._landing > 0 || (this._trainingRuntime.running && this.training.state !== 'paused')) this._wake(); else this._last = null;
+        if (this.state !== 'idle' || this._navigation.active || this._landing > 0 || this._helpPending || (this._trainingRuntime.running && this.training.state !== 'paused')) this._wake(); else this._last = null;
       });
     }
     _sleep() { cancelAnimationFrame(this._raf); this._raf = null; this._last = null; }

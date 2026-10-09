@@ -1,20 +1,38 @@
-const reasons = {
-  timeout: 'A tela ou o componente não ficou disponível a tempo.',
-  'target-lost': 'O componente desta etapa não está mais disponível.',
-  'ambiguous-target': 'Há mais de um componente correspondente a esta etapa.',
-  'target-resolution-failed': 'Não foi possível encontrar o componente desta etapa.',
-  'route-changed': 'A tela mudou. Retome quando estiver pronto.',
-  'external-command': 'Treinamento pausado durante outra orientação.',
-  restored: 'Progresso restaurado. Retome quando estiver pronto.',
-  user: 'Treinamento pausado.'
-};
 const failures = new Set(['timeout', 'target-lost', 'ambiguous-target', 'target-resolution-failed']);
 const liveStates = new Set(['waiting-route', 'waiting-target', 'presenting', 'active', 'paused']);
 
+const labels = {
+  'pt-BR': {
+    previous: 'Voltar', next: 'Próximo', complete: 'Concluir', pause: 'Pausar', resume: 'Retomar', retry: 'Tentar novamente', stop: 'Encerrar',
+    progress: ({ current, total }) => `Passo ${current} de ${total}`,
+    hints: { waitingRoute: 'Aguardando a tela…', waitingTarget: 'Aguardando o componente…', presenting: 'Preparando a orientação…', active: 'Aguardando sua ação.', paused: 'Treinamento pausado.' },
+    reasons: { timeout: 'A tela ou o componente não ficou disponível a tempo.', 'target-lost': 'O componente desta etapa não está mais disponível.', 'ambiguous-target': 'Há mais de um componente correspondente a esta etapa.', 'target-resolution-failed': 'Não foi possível encontrar o componente desta etapa.', 'route-changed': 'A tela mudou. Retome quando estiver pronto.', 'external-command': 'Treinamento pausado durante outra orientação.', restored: 'Progresso restaurado. Retome quando estiver pronto.', user: 'Treinamento pausado.' }
+  },
+  en: {
+    previous: 'Back', next: 'Next', complete: 'Complete', pause: 'Pause', resume: 'Resume', retry: 'Try again', stop: 'End',
+    progress: ({ current, total }) => `Step ${current} of ${total}`,
+    hints: { waitingRoute: 'Open the indicated screen…', waitingTarget: 'Waiting for the component…', presenting: 'Preparing the guidance…', active: 'Waiting for your action.', paused: 'Training paused.' },
+    reasons: { timeout: 'The screen or component was not available in time.', 'target-lost': 'The component for this step is no longer available.', 'ambiguous-target': 'More than one component matches this step.', 'target-resolution-failed': 'The component for this step could not be found.', 'route-changed': 'The screen changed. Resume when ready.', 'external-command': 'Training paused during another orientation.', restored: 'Progress restored. Resume when ready.', user: 'Training paused.' }
+  },
+  es: {
+    previous: 'Volver', next: 'Siguiente', complete: 'Completar', pause: 'Pausar', resume: 'Reanudar', retry: 'Intentar de nuevo', stop: 'Terminar',
+    progress: ({ current, total }) => `Paso ${current} de ${total}`,
+    hints: { waitingRoute: 'Abre la pantalla indicada…', waitingTarget: 'Esperando al componente…', presenting: 'Preparando la orientación…', active: 'Esperando tu acción.', paused: 'Entrenamiento pausado.' },
+    reasons: { timeout: 'La pantalla o el componente no estuvo disponible a tiempo.', 'target-lost': 'El componente de este paso ya no está disponible.', 'ambiguous-target': 'Hay más de un componente para este paso.', 'target-resolution-failed': 'No se pudo encontrar el componente de este paso.', 'route-changed': 'La pantalla cambió. Reanuda cuando estés listo.', 'external-command': 'Entrenamiento pausado durante otra orientación.', restored: 'Progreso restaurado. Reanuda cuando estés listo.', user: 'Entrenamiento pausado.' }
+  }
+};
+
+export function trainingLabels(locale = 'pt-BR') {
+  const value = String(locale || '').toLowerCase();
+  const key = value === 'en' || value.startsWith('en-') ? 'en' : value === 'es' || value.startsWith('es-') ? 'es' : 'pt-BR';
+  return labels[key];
+}
+
 /** Owns only training content and feedback timing inside the existing movable bubble. */
 export class TrainingView {
-  constructor({ bubble, status, closeButton, trigger, onAction, onResize }) {
+  constructor({ bubble, status, closeButton, trigger, onAction, onResize, locale = 'pt-BR' }) {
     Object.assign(this, { bubble, status, closeButton, trigger, onAction, onResize });
+    this.setLocale(locale);
     this.doc = bubble.ownerDocument;
     this.win = this.doc.defaultView;
     this.active = false;
@@ -49,7 +67,7 @@ export class TrainingView {
       .ddocbot-training-controls [hidden],.ddocbot-training-hint[hidden],.ddocbot-training-feedback[hidden],.ddocbot-training-controls[hidden]{display:none!important}
     `;
     this.buttons = {};
-    for (const [action, label] of Object.entries({ previous: 'Voltar', next: 'Próximo', pause: 'Pausar', resume: 'Retomar', stop: 'Encerrar' })) {
+    for (const [action, label] of Object.entries({ previous: this.labels.previous, next: this.labels.next, pause: this.labels.pause, resume: this.labels.resume, stop: this.labels.stop })) {
       const button = element('button', '');
       button.type = 'button'; button.textContent = label;
       button.addEventListener('click', () => { if (this.active) this.onAction(action); });
@@ -66,6 +84,19 @@ export class TrainingView {
     });
   }
 
+  setLocale(locale) {
+    this.locale = locale;
+    this.labels = trainingLabels(locale);
+    if (this.buttons) {
+      this.buttons.previous.textContent = this.labels.previous;
+      this.buttons.next.textContent = this.labels.next;
+      this.buttons.pause.textContent = this.labels.pause;
+      this.buttons.resume.textContent = this.labels.resume;
+      this.buttons.stop.textContent = this.labels.stop;
+      if (this.snapshot && this.active) this.render(this.snapshot);
+    }
+  }
+
   _listen(name, handler) {
     this.bubble.addEventListener(name, handler);
     this.listeners.push([name, handler]);
@@ -74,6 +105,7 @@ export class TrainingView {
   _focused() { return this.bubble.getRootNode().activeElement; }
 
   render(snapshot) {
+    this.snapshot = snapshot;
     if (!liveStates.has(snapshot.state) || !snapshot.step) { this.clear(); return; }
     const focused = this._focused();
     const controlledFocus = this.controls.contains(focused);
@@ -83,7 +115,7 @@ export class TrainingView {
     this.active = true;
     this.bubble.hidden = false;
     if (this.instruction.parentNode !== this.status) this.status.replaceChildren(this.instruction, this.progress);
-    const progress = `Passo ${snapshot.index + 1} de ${snapshot.total}`;
+    const progress = this.labels.progress({ current: snapshot.index + 1, total: snapshot.total });
     const content = `${snapshot.step.text}\n${progress}`;
     if (changedStep || this.instructionContent !== content) {
       this.instructionContent = content;
@@ -95,18 +127,18 @@ export class TrainingView {
     }
     const paused = snapshot.state === 'paused';
     const active = snapshot.state === 'active';
-    const hint = paused ? reasons[snapshot.reason] || 'Treinamento pausado.'
-      : snapshot.state === 'waiting-route' ? 'Aguardando a tela…'
-      : snapshot.state === 'waiting-target' ? 'Aguardando o componente…'
-      : snapshot.state === 'presenting' ? 'Preparando a orientação…'
-      : snapshot.step.advance.type !== 'manual' ? 'Aguardando sua ação.' : '';
+    const hint = paused ? this.labels.reasons[snapshot.reason] || this.labels.hints.paused
+      : snapshot.state === 'waiting-route' ? this.labels.hints.waitingRoute
+      : snapshot.state === 'waiting-target' ? this.labels.hints.waitingTarget
+      : snapshot.state === 'presenting' ? this.labels.hints.presenting
+      : snapshot.step.advance.type !== 'manual' ? this.labels.hints.active : '';
     this.hint.textContent = hint; this.hint.hidden = !hint;
     this.buttons.previous.disabled = snapshot.index === 0;
     this.buttons.next.hidden = !active || snapshot.step.advance.type !== 'manual';
-    this.buttons.next.textContent = snapshot.index === snapshot.total - 1 ? 'Concluir' : 'Próximo';
+    this.buttons.next.textContent = snapshot.index === snapshot.total - 1 ? this.labels.complete : this.labels.next;
     this.buttons.pause.hidden = paused;
     this.buttons.resume.hidden = !paused;
-    this.buttons.resume.textContent = failures.has(snapshot.reason) ? 'Tentar novamente' : 'Retomar';
+    this.buttons.resume.textContent = failures.has(snapshot.reason) ? this.labels.retry : this.labels.resume;
     this.closeButton.hidden = true;
     this.controls.hidden = false;
     this.bubble.hidden = false;
