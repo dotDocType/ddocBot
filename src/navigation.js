@@ -112,7 +112,9 @@ export class BotNavigation {
     const target = resolveTarget(value, this.doc);
     if (!target || !measureTarget(target, this.doc)) return false;
     if (!this.active) this.position = this.getHome();
-    this.cancel(); this.anchor = null;
+    // Pointing at the element the bot flew to keeps following it, so the bot stays beside it when the layout moves.
+    const follow = target.element && this.anchor?.element === target.element ? this.anchor : null;
+    this.cancel(); this.anchor = follow;
     this.laserTarget = target;
     this.setState('pointing'); this.update(0); this.wake(); return true;
   }
