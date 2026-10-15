@@ -98,6 +98,19 @@ test('pointing at a new target holds position and releases the old flight anchor
   const after=await portal(page).locator('canvas').boundingBox();expect(after).toEqual(before);
 });
 
+test('pointing at an element keeps the bot next to it when the layout moves',async({page})=>{
+  await page.evaluate(()=>bot.flyTo(target,{duration:0}));
+  expect(await page.evaluate(()=>bot.pointAt(target))).toBe(true);
+  const before=await portal(page).locator('canvas').boundingBox();
+  await page.evaluate(()=>{target.style.left='520px';target.style.top='420px';});
+  await expect.poll(async()=>(await portal(page).locator('canvas').boundingBox()).x).not.toBe(before.x);
+  expect(await page.evaluate(()=>bot.navigationState)).toBe('pointing');
+  const actor=await portal(page).locator('.trigger').boundingBox();const moved=await page.locator('#target').boundingBox();
+  expect(actor.x+actor.width<=moved.x||actor.x>=moved.x+moved.width||actor.y+actor.height<=moved.y||actor.y>=moved.y+moved.height).toBe(true);
+  const sprite=await portal(page).locator('canvas').boundingBox();
+  expect(Math.hypot(sprite.x+12-(moved.x+moved.width/2),sprite.y+12-(moved.y+moved.height/2))).toBeLessThan(160);
+});
+
 test('event listeners can replace navigation commands without crashes or overwritten flights',async({page})=>{
   const result=await page.evaluate(async()=>{
     bot.addEventListener('ddocbot-navigationchange',event=>{if(event.detail.state==='flying')void bot.returnHome({duration:0});},{once:true});
